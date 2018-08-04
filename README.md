@@ -1,2 +1,2 @@
 # RecommenderSystem
-Building a Movie RecommenderSystem in R 
+Building a RecommenderSystem in R 
