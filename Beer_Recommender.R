@@ -59,18 +59,37 @@ beer%>% group_by(review_overall) %>% summarise(total = length(review_overall)) %
 
 #How many reviews each beer has.
 
-beer %>% group_by(beer_beerid) %>% summarise(total = length(beer_beerid)) %>% #filter(total <= 10)%>%
-  mutate(percent = (total/sum(total)*100))%>%
- ggplot(aes(total))+ geom_histogram(bins = 30)
+beer %>% group_by(beer_beerid) %>% summarise(total = length(beer_beerid)) %>% 
+  mutate(percent = (total/sum(total)*100))%>%arrange(desc(percent))%>%top_n(100,wt = percent)
+
+#beer_id 2093 has maximum number of reviews which is 977
+
+#What is the mean and maximum number of reviews given by each user
+
+user_rev <- beer %>% group_by(review_profilename) %>% summarise(total_rev = length(review_profilename))#%>%
+ # ggplot(aes(total_rev)) + geom_histogram()
+
+summary(user_rev$total_rev)
+
+#Mean user review is 21
+
+#beer %>% group_by(review_profilename) %>% summarise(total_rev = length(review_profilename))#%>%
+ # ggplot(aes(x = "", y = total_rev)) + geom_boxplot()
 
 beer %>% group_by(beer_beerid) %>% summarise(total = length(beer_beerid)) %>% filter(total <= 10)%>%
   mutate(average = mean(total))%>%
   ggplot(aes(x = "", y = total)) + geom_boxplot()
 
-#Let's take 12 as minimum number of reviews a beer category has.
+#Let's take 200 as minimum number of reviews a beer category has.
 
-beer <- beer %>% group_by(beer_beerid) %>%  filter(length(beer_beerid)>= 12)
+beer <- beer %>% group_by(beer_beerid) %>%  filter(length(beer_beerid)>= 200)
 str(beer)
+
+
+#Also let's remove users who have provided less than 21 ratings which is the mean number of user ratings.
+
+beer <- beer %>% group_by(review_profilename) %>% filter(length(review_profilename) >= 21)
+
 #Converting to realRatingMatrix
 
 beer_df <- as.data.frame(beer)
@@ -120,7 +139,7 @@ ggplot(beer, aes(factor(review_overall), fill = factor(review_overall)))+geom_ba
 qplot(getRatings(r), binwidth = 1, 
       main = "Histogram of ratings", xlab = "Rating")
 
-summary(getRatings(r)) # The average beer rating is 3.858
+summary(getRatings(r)) # The average beer rating is 3.858, 3.977
 
 qplot(getRatings(normalize(r, method = "Z-score")),
       main = "Histogram of normalized ratings", xlab = "Rating") 
@@ -140,19 +159,19 @@ qplot(rowCounts(r), binwidth = 10,
 mean_userRating <- beer %>% group_by(review_profilename) %>% summarise(meanRating = mean(review_overall))
   ggplot(mean_userRating, aes(x = meanRating)) + geom_histogram()
 
-summary(mean_userRating$meanRating) #mean user rating is 3.924
+summary(mean_userRating$meanRating) #mean user rating is 3.924, 3.980
 
 #The average number of ratings given to the beers
 
 meanRating_beers <- beer %>% group_by(beer_beerid) %>% summarise(meanRating = length(beer_beerid))
 
-summary(meanRating_beers$meanRating) #63 ratings
+summary(meanRating_beers$meanRating) #63 ratings, 209
 
 #The average number of ratings given by the users
 
 meanRating_users <- beer %>% group_by(review_profilename) %>% summarise(meanRating = length(review_profilename))
 
-summary(meanRating_users$meanRating) #18 ratings
+summary(meanRating_users$meanRating) #18 ratings, 42
 
 #5. Recommendation Models
 
@@ -170,3 +189,19 @@ scheme <- evaluationScheme(r, method = "split", train = .9,
 scheme
 
 
+
+algorithms <- list(
+  "user-based CF" = list(name="UBCF", param=list(normalize = "Z-score",
+                                                 method="Cosine",
+                                                 nn=30, minRating=3)),
+  "item-based CF" = list(name="IBCF", param=list(normalize = "Z-score"
+  ))
+)
+
+
+# run algorithms, predict next n movies
+results <- evaluate(scheme, algorithms, n=c(1, 3, 5, 10, 15, 20))
+class(results)
+
+# Draw ROC curve
+plot(results, annotate = 1:4, legend="topleft")
